@@ -61,6 +61,7 @@ export default function OperationsPage({ onNavigate, pageKey = 'threat-intel' })
             <button onClick={() => onNavigate('threat-intel')} className="px-3 py-1 rounded border border-transparent hover:border-outline-variant/40 hover:text-accent transition-colors">Threat Intelligence</button>
             <button onClick={() => onNavigate('policy')} className="px-3 py-1 rounded border border-transparent hover:border-outline-variant/40 hover:text-accent transition-colors">Policy</button>
             <button onClick={() => onNavigate('logs')} className="px-3 py-1 rounded border border-transparent hover:border-outline-variant/40 hover:text-accent transition-colors">Logs</button>
+            <button onClick={() => onNavigate('history')} className="px-3 py-1 rounded border border-transparent hover:border-outline-variant/40 hover:text-accent transition-colors">History</button>
           </div>
         </div>
       </header>

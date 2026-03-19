@@ -14,6 +14,7 @@ function Navbar({ onNavigate }) {
           <a onClick={(e) => { e.preventDefault(); onNavigate('threat-intel'); }} href="#" className="hover:text-white transition-colors">Threat Intelligence</a>
           <a onClick={(e) => { e.preventDefault(); onNavigate('policy'); }} href="#" className="hover:text-white transition-colors">Policy</a>
           <a onClick={(e) => { e.preventDefault(); onNavigate('logs'); }} href="#" className="hover:text-white transition-colors">Logs</a>
+          <a onClick={(e) => { e.preventDefault(); onNavigate('history'); }} href="#" className="hover:text-white transition-colors">History</a>
         </div>
       </div>
 

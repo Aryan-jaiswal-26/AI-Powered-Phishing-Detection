@@ -1,16 +1,75 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 
-export default function DetectionWorkspace({ onNavigate }) {
+function relativeTime(timestamp) {
+  const seconds = Math.max(1, Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000));
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+export default function DetectionWorkspace({ onNavigate, onAnalyze, analysisHistory = [], onSelectHistoryItem }) {
   const [activeTab, setActiveTab] = useState('email');
   const [inputData, setInputData] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [selectedFileName, setSelectedFileName] = useState('');
+  const [analysisError, setAnalysisError] = useState('');
+  const fileInputRef = useRef(null);
 
-  const handleAnalyze = () => {
+  const handleFileRead = (file) => {
+    if (!file) return;
+    setSelectedFileName(file.name);
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      setInputData(typeof reader.result === 'string' ? reader.result : '');
+      setAnalysisError('');
+    };
+
+    reader.onerror = () => {
+      setInputData('');
+      setAnalysisError('Unable to read this file. Please try another file format.');
+    };
+
+    reader.readAsText(file);
+  };
+
+  const handleFileInputChange = (event) => {
+    const file = event.target.files?.[0];
+    handleFileRead(file);
+  };
+
+  const handleFileDrop = (event) => {
+    event.preventDefault();
+    const file = event.dataTransfer.files?.[0];
+    handleFileRead(file);
+  };
+
+  const handleAnalyze = async () => {
+    const normalizedInput = inputData.trim();
+    if (activeTab !== 'file' && !normalizedInput) return;
+
     setIsAnalyzing(true);
-    setTimeout(() => {
+    setAnalysisError('');
+
+    try {
+      if (onAnalyze) {
+        await onAnalyze({
+          inputType: activeTab,
+          input: inputData,
+          fileName: selectedFileName
+        });
+      }
+      setTimeout(() => {
+        setIsAnalyzing(false);
+        onNavigate('analysis');
+      }, 500);
+    } catch {
       setIsAnalyzing(false);
-      onNavigate('analysis');
-    }, 1500);
+      setAnalysisError('Scan failed. Verify backend is running and try again.');
+    }
   };
 
   return (
@@ -29,6 +88,7 @@ export default function DetectionWorkspace({ onNavigate }) {
             <a onClick={() => onNavigate('threat-intel')} className="font-['Space_Grotesk'] tracking-tight text-sm text-[#bbc9cf] hover:text-[#00D1FF] transition-colors duration-300 ease-in-out cursor-pointer" href="#">Threat Intelligence</a>
             <a onClick={() => onNavigate('policy')} className="font-['Space_Grotesk'] tracking-tight text-sm text-[#bbc9cf] hover:text-[#00D1FF] transition-colors duration-300 ease-in-out cursor-pointer" href="#">Policy</a>
             <a onClick={() => onNavigate('logs')} className="font-['Space_Grotesk'] tracking-tight text-sm text-[#bbc9cf] hover:text-[#00D1FF] transition-colors duration-300 ease-in-out cursor-pointer" href="#">Logs</a>
+            <button onClick={() => onNavigate('history')} className="font-['Space_Grotesk'] tracking-tight text-sm text-[#bbc9cf] hover:text-[#00D1FF] transition-colors duration-300 ease-in-out cursor-pointer">History</button>
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -75,7 +135,7 @@ export default function DetectionWorkspace({ onNavigate }) {
           </button>
         </div>
         <div className="mt-auto pt-8 border-t border-outline-variant/10 space-y-1">
-          <button onClick={() => onNavigate('analysis')} className="w-full py-3 px-4 bg-primary-container text-on-primary font-headline font-bold text-xs tracking-widest rounded hover:shadow-[0_0_15px_rgba(0,209,255,0.3)] transition-all">
+          <button onClick={handleAnalyze} className="w-full py-3 px-4 bg-primary-container text-on-primary font-headline font-bold text-xs tracking-widest rounded hover:shadow-[0_0_15px_rgba(0,209,255,0.3)] transition-all">
             INITIATE SCAN
           </button>
           <div className="pt-4 space-y-2">
@@ -152,10 +212,24 @@ export default function DetectionWorkspace({ onNavigate }) {
                     )}
 
                     {activeTab === 'file' && (
-                      <div className="w-full h-80 bg-surface-container-lowest/30 border border-outline-variant/20 border-dashed rounded-lg p-6 flex flex-col items-center justify-center text-on-surface-variant cursor-pointer hover:bg-surface-container-high/20 hover:border-primary/50 transition-all group">
+                      <div
+                        onClick={() => fileInputRef.current?.click()}
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={handleFileDrop}
+                        className="w-full h-80 bg-surface-container-lowest/30 border border-outline-variant/20 border-dashed rounded-lg p-6 flex flex-col items-center justify-center text-on-surface-variant cursor-pointer hover:bg-surface-container-high/20 hover:border-primary/50 transition-all group"
+                      >
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          className="hidden"
+                          onChange={handleFileInputChange}
+                          accept=".txt,.eml,.msg,.csv,.json,.md,.html"
+                        />
                         <span className="material-symbols-outlined text-4xl mb-4 text-outline group-hover:text-primary transition-colors">upload</span>
                         <p className="text-sm font-bold mb-1">Drag and drop file here</p>
                         <p className="text-xs opacity-60">Supports .eml, .msg, .pdf, .docx (Max 50MB)</p>
+                        {selectedFileName && <p className="text-xs mt-4 text-primary">Loaded: {selectedFileName}</p>}
+                        {analysisError && <p className="text-xs mt-2 text-error">{analysisError}</p>}
                       </div>
                     )}
 
@@ -179,7 +253,7 @@ export default function DetectionWorkspace({ onNavigate }) {
 
                     <button 
                       onClick={handleAnalyze} 
-                      disabled={isAnalyzing || (!inputData && activeTab !== 'file')}
+                      disabled={isAnalyzing || (!inputData && activeTab !== 'file') || (activeTab === 'file' && !selectedFileName)}
                       className="group relative px-10 py-4 bg-primary-container text-on-primary font-headline font-bold text-sm tracking-[0.2em] rounded overflow-hidden transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:scale-100 disabled:cursor-not-allowed"
                     >
                       <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
@@ -208,35 +282,35 @@ export default function DetectionWorkspace({ onNavigate }) {
                   <span className="material-symbols-outlined text-primary text-sm">filter_list</span>
                 </div>
                 <div className="space-y-4">
-                  <div className="group flex items-start gap-4 p-3 rounded-lg hover:bg-surface-container-high transition-colors cursor-pointer border-l-2 border-transparent hover:border-error">
-                    <div className="h-10 w-10 shrink-0 rounded bg-error/10 flex items-center justify-center text-error">
-                      <span className="material-symbols-outlined">warning</span>
-                    </div>
-                    <div className="overflow-hidden">
-                      <p className="text-xs font-bold text-on-surface truncate">Urgent: Account Verification Required</p>
-                      <p className="text-[10px] text-on-surface-variant/60 font-label uppercase tracking-tighter mt-1">2 mins ago • High Risk</p>
-                    </div>
-                  </div>
-                  <div className="group flex items-start gap-4 p-3 rounded-lg hover:bg-surface-container-high transition-colors cursor-pointer border-l-2 border-transparent hover:border-tertiary">
-                    <div className="h-10 w-10 shrink-0 rounded bg-tertiary/10 flex items-center justify-center text-tertiary">
-                      <span className="material-symbols-outlined">check_circle</span>
-                    </div>
-                    <div className="overflow-hidden">
-                      <p className="text-xs font-bold text-on-surface truncate">https://secure.bank-internal.net</p>
-                      <p className="text-[10px] text-on-surface-variant/60 font-label uppercase tracking-tighter mt-1">1 hour ago • Safe</p>
-                    </div>
-                  </div>
-                  <div className="group flex items-start gap-4 p-3 rounded-lg hover:bg-surface-container-high transition-colors cursor-pointer border-l-2 border-transparent hover:border-outline">
-                    <div className="h-10 w-10 shrink-0 rounded bg-outline/10 flex items-center justify-center text-outline">
-                      <span className="material-symbols-outlined">help</span>
-                    </div>
-                    <div className="overflow-hidden">
-                      <p className="text-xs font-bold text-on-surface truncate">Internal Memo - Q3 Goals.docx</p>
-                      <p className="text-[10px] text-on-surface-variant/60 font-label uppercase tracking-tighter mt-1">4 hours ago • Neutral</p>
-                    </div>
-                  </div>
+                  {analysisHistory.slice(0, 3).map((entry) => {
+                    const status = entry.result?.status || 'SAFE';
+                    const statusColor =
+                      status === 'DANGER'
+                        ? 'hover:border-error bg-error/10 text-error'
+                        : status === 'QUARANTINED'
+                          ? 'hover:border-primary bg-primary/10 text-primary'
+                          : 'hover:border-tertiary bg-tertiary/10 text-tertiary';
+
+                    return (
+                      <button
+                        key={entry.id}
+                        onClick={() => onSelectHistoryItem && onSelectHistoryItem(entry.id)}
+                        className="group w-full flex items-start gap-4 p-3 rounded-lg hover:bg-surface-container-high transition-colors cursor-pointer border-l-2 border-transparent text-left"
+                      >
+                        <div className={`h-10 w-10 shrink-0 rounded flex items-center justify-center ${statusColor}`}>
+                          <span className="material-symbols-outlined">{status === 'DANGER' ? 'warning' : status === 'QUARANTINED' ? 'shield' : 'check_circle'}</span>
+                        </div>
+                        <div className="overflow-hidden">
+                          <p className="text-xs font-bold text-on-surface truncate">{entry.result?.riskLabel || 'Scan Result'}</p>
+                          <p className="text-[10px] text-on-surface-variant/60 font-label uppercase tracking-tighter mt-1">
+                            {relativeTime(entry.createdAt)} • {status}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
-                <button className="w-full mt-6 py-2 text-[10px] font-label uppercase tracking-[0.2em] text-on-surface-variant hover:text-primary transition-colors text-center">
+                <button onClick={() => onNavigate('history')} className="w-full mt-6 py-2 text-[10px] font-label uppercase tracking-[0.2em] text-on-surface-variant hover:text-primary transition-colors text-center">
                   View Full Archive
                 </button>
               </div>

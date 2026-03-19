@@ -109,6 +109,12 @@ export default function InfoPage({ onNavigate, pageKey = 'privacy' }) {
           </div>
           <div className="flex items-center gap-2 self-start md:self-auto">
             <button
+              onClick={() => onNavigate('history')}
+              className="px-4 py-2 border border-outline-variant/30 rounded hover:border-accent hover:text-accent transition-colors text-xs uppercase tracking-widest font-bold"
+            >
+              History
+            </button>
+            <button
               onClick={() => onNavigate('home')}
               className="px-4 py-2 border border-outline-variant/30 rounded hover:border-accent hover:text-accent transition-colors text-xs uppercase tracking-widest font-bold"
             >
